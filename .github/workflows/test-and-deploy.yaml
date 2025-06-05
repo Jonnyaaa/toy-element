@@ -9,62 +9,61 @@ jobs:
   test:
     name: Run Lint and Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run tests
-        run: npm run test
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g pnpm@8
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
 
   build:
     name: Build docs
     runs-on: ubuntu-latest
     needs: test
-
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-
-      - name: Install pnpm
-        run: npm install -g pnpm
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install -g pnpm@8
+      - run: pnpm install --frozen-lockfile
+      
+      # 关键修改1：验证构建命令和路径
       - name: Build docs
-        run: npm run docs:build
-
+        run: |
+          echo "正在构建文档..."
+          pnpm docs:build
+          echo "构建完成，目录结构："
+          ls -R ./docs/.vitepress/dist || echo "构建失败！"
+          
+      # 关键修改2：确保上传正确路径
       - name: Upload docs
         uses: actions/upload-artifact@v4
         with:
           name: docs
-          path: ./package/docs/.vitepress/dist
+          path: ./docs/.vitepress/dist  # 注意路径变化！
+          retention-days: 1
 
   deploy:
     name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - uses: actions/checkout@v4
+      
+      # 关键修改3：指定下载路径
       - name: Download docs
         uses: actions/download-artifact@v4
         with:
           name: docs
-
-      - name: Deploy to GitHub Pages
+          path: ./dist  # 创建明确的下载目录
+          
+      # 关键修改4：正确设置发布目录
+      - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
         with:
-          github_token: ${{ secrets.GH_TOKEN }}
-          publish_dir: .
+          github_token: ${{ secrets.GITHUB_TOKEN }}  # 使用默认token
+          publish_dir: ./dist  # 必须与下载路径一致
+          keep_files: false
